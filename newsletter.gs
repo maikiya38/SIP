@@ -3,6 +3,396 @@
  * シート前提：
  * A:名前 / B:社員番号 / C:生年月日 / D:メール / E:PDF送信日 / F:第1回済 / G:第2回済（推奨）
  */
+function onFormSubmit(e) {
+  sendConsentEmail(e);
+}
+
+/**
+ * フォームの「同意する」回答者へ自動送信メール
+ * 送信条件：同意質問に「同意する」と回答していること
+ */
+function sendConsentEmail(e) {
+  if (!e || !e.namedValues) {
+    console.warn("フォーム送信イベントが取得できません。");
+    return;
+  }
+
+  // ==================================================
+  // 【設定エリア】フォームの質問文に合わせて変更してください
+  // ==================================================
+  const LAST_NAME_QUESTION = "姓（漢字）（例：山田）";
+  const FIRST_NAME_QUESTION = "名（漢字）（例：花子）";
+  const EMAIL_QUESTION = "メールアドレス（※社内アドレスを推奨）";
+  const CONSENT_QUESTION =
+    "あなたはこの研究に参加するにあたり、上記の事項について十分な説明を受け、内容等を十分理解の上、本研究に参加することに同意しますか？";
+  const CONSENT_VALUE = "同意する";
+  const SUBJECT = "Well-Bone Health Study お申込みありがとうございます";
+  // ==================================================
+
+  const lastName = getFirstAnswer_(e.namedValues[LAST_NAME_QUESTION]);
+  const firstName = getFirstAnswer_(e.namedValues[FIRST_NAME_QUESTION]);
+  const email = getFirstAnswer_(e.namedValues[EMAIL_QUESTION]);
+  const consent = getFirstAnswer_(e.namedValues[CONSENT_QUESTION]);
+
+  if (!email) {
+    console.warn("メールアドレスが取得できません。");
+    return;
+  }
+
+  if (!consent || !consent.includes(CONSENT_VALUE)) {
+    console.log(`同意が確認できないため送信をスキップしました: ${email}`);
+    return;
+  }
+
+  const fullName = [lastName, firstName].filter(Boolean).join(" ");
+  const displayName = fullName ? `${fullName} 様` : "参加者 様";
+  const htmlBody = buildConsentEmailHtml_(displayName);
+
+  GmailApp.sendEmail(email, SUBJECT, "HTMLメールを表示できる環境でご覧ください。", {
+    htmlBody,
+    name: "ウェルネス事務局",
+  });
+}
+
+function buildConsentEmailHtml_(displayName) {
+  return `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Well-Bone Health Study</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 14px;
+            opacity: 0.95;
+        }
+        .greeting {
+            padding: 25px 20px 15px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #333333;
+        }
+        .content {
+            padding: 0 20px 20px;
+        }
+        .gift-box {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .gift-box h2 {
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            color: #d63031;
+        }
+        .gift-item {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            font-weight: 500;
+            color: #2d3436;
+        }
+        .cta-section {
+            background-color: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            text-align: center;
+            border: 2px solid #667eea;
+        }
+        .cta-section h3 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #333333;
+        }
+        .cta-section .time {
+            color: #6c757d;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 16px 40px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        .benefits {
+            background-color: #f0f7ff;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        .benefits h3 {
+            margin: 0 0 20px 0;
+            font-size: 18px;
+            color: #333333;
+            text-align: center;
+        }
+        .benefit-item {
+            display: flex;
+            align-items: flex-start;
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .benefit-number {
+            background-color: #667eea;
+            color: #ffffff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            flex-shrink: 0;
+            margin-right: 15px;
+        }
+        .benefit-text {
+            flex: 1;
+            color: #2d3436;
+        }
+        .benefit-text strong {
+            display: block;
+            color: #333333;
+            margin-bottom: 3px;
+        }
+        .warning-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin: 20px 0;
+        }
+        .warning-box strong {
+            color: #856404;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .warning-box p {
+            margin: 0;
+            color: #856404;
+            font-size: 14px;
+        }
+        .info-box {
+            background-color: #e7f3ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .info-box h4 {
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            color: #0056b3;
+        }
+        .info-box ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .info-box li {
+            margin: 8px 0;
+            color: #333333;
+        }
+        .footer {
+            background-color: #2d3436;
+            color: #ffffff;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .footer h4 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .footer p {
+            margin: 5px 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .footer a {
+            color: #74b9ff;
+            text-decoration: none;
+        }
+        .divider {
+            height: 1px;
+            background: linear-gradient(to right, transparent, #dfe6e9, transparent);
+            margin: 25px 0;
+        }
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+            }
+            .header h1 {
+                font-size: 18px;
+            }
+            .gift-box h2 {
+                font-size: 18px;
+            }
+            .cta-button {
+                padding: 14px 30px;
+                font-size: 15px;
+            }
+            .benefit-item {
+                flex-direction: column;
+            }
+            .benefit-number {
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🏥 順天堂大学スポートロジーセンター</h1>
+            <p>Well-Bone Health Study</p>
+        </div>
+
+        <!-- Greeting -->
+        <div class="greeting">
+            ${displayName}
+        </div>
+
+        <div class="content">
+            <p style="margin: 0 0 20px 0; color: #555555;">
+                お申込みありがとうございます。
+            </p>
+
+            <!-- Gift Box -->
+            <div class="gift-box">
+                <h2>🎁 あと1ステップで受け取れます</h2>
+                <div class="gift-item">
+                    ✅ 無料の骨密度AI検査
+                </div>
+                <div class="gift-item">
+                    ✅ 順天堂監修・あなた専用ウェルネスレポート
+                </div>
+            </div>
+
+            <!-- CTA Section -->
+            <div class="cta-section">
+                <h3>📋 まず、こちらにご回答ください</h3>
+                <p style="font-weight: 600; color: #333333; margin: 10px 0;">【必須】女性ウェルネス診断アンケート</p>
+                <p class="time">⏱️ 所要時間：約12分</p>
+                <a href="https://forms.gle/7PagAPxh6ajKUxo19" class="cta-button">
+                    📝 アンケートに回答する
+                </a>
+            </div>
+
+            <!-- Benefits -->
+            <div class="benefits">
+                <h3>📦 アンケート回答後にお届けする内容</h3>
+                
+                <div class="benefit-item">
+                    <div class="benefit-number">1</div>
+                    <div class="benefit-text">
+                        <strong>骨密度AI検査</strong>
+                        胸部レントゲン画像を使用
+                    </div>
+                </div>
+
+                <div class="benefit-item">
+                    <div class="benefit-number">2</div>
+                    <div class="benefit-text">
+                        <strong>順天堂監修 特別ウェルネスレポート</strong>
+                        あなた専用の健康レポート
+                    </div>
+                </div>
+
+                <div class="benefit-item">
+                    <div class="benefit-number">3</div>
+                    <div class="benefit-text">
+                        <strong>動画付き特別メルマガ（全8回）</strong>
+                        健康管理に役立つ情報をお届け
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warning Box -->
+            <div class="warning-box">
+                <strong>⚠️ 重要なお知らせ</strong>
+                <p>アンケート未完了の場合、検査・レポート・配信はいずれも行われませんのでご注意ください。</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Info Box -->
+            <div class="info-box">
+                <h4>📧 メールが届かない場合</h4>
+                <ul>
+                    <li>迷惑メールフォルダをご確認ください</li>
+                    <li><strong>well-bone@juntendo.ac.jp</strong> からの受信設定をご確認ください</li>
+                </ul>
+            </div>
+
+            <p style="color: #6c757d; font-size: 14px; text-align: center; margin-top: 30px;">
+                ご不明点は本メールへの返信、または下記までご連絡ください。
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <h4>💬 お問い合わせ</h4>
+            <p>順天堂大学スポートロジーセンター</p>
+            <p>Well-Bone Health Study 事務局</p>
+            <p>📩 <a href="mailto:well-bone@juntendo.ac.jp">well-bone@juntendo.ac.jp</a></p>
+        </div>
+    </div>
+</body>
+</html>
+  `;
+}
+
+function getFirstAnswer_(value) {
+  if (!value) return "";
+  if (Array.isArray(value)) {
+    return value[0] ? String(value[0]).trim() : "";
+  }
+  return String(value).trim();
+}
+
 function sendFirstNewsletterNow() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("シート1");
   const lastRow = sheet.getLastRow();
